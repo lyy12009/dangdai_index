@@ -311,7 +311,7 @@
   <header>
     <h1>當代中文課程 - 智慧課文生成與簡報 Prompt 工作流</h1>
     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <a href="https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;">
+      <a href="[https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/](https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/)" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;">
         ☁️ 點我前往 Cloud Stream 網站
       </a>
       <div id="data-status" class="status-badge">資料狀態：讀取中...</div>
@@ -433,7 +433,7 @@
       <div class="card">
         <div class="card-title">
           <span>最終產出：教學簡報設計 Prompt</span>
-          <div style="font-size: 0.9rem; font-weight: normal; display: flex; gap: 15px; align-items: center;">
+          <div style="font-size: 0.9rem; font-weight: normal; display: flex; gap: 15px; align- items: center;">
             <label><input type="radio" name="gen-mode" value="all" checked onchange="toggleGenMode()"> 一次性生成 (全課完整版)</label>
             <label><input type="radio" name="gen-mode" value="modular" onchange="toggleGenMode()"> 分六大模組生成 (防 Token 溢出與截斷)</label>
           </div>
@@ -457,7 +457,7 @@
 
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
           <button class="btn btn-success" onclick="copyText('s3-prompt-output')">📋 複製當前 Prompt 到剪貼簿</button>
-          <a href="https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          <a href="[https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/](https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/)" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
             ☁️ 點我前往 Cloud Stream 網站產出 PPTX ➡️
           </a>
           <button class="btn btn-secondary" onclick="switchStep(2)">⬅️ 返回 Step 2 微調</button>
@@ -505,7 +505,7 @@
       dangdaiData.forEach((item, index) => {
         const book = item.冊 || '';
         const lesson = item.課 || '';
-        const key = `${book}${lesson}`.trim();
+        const key = `${book} ${lesson}`.trim();
         const opt = document.createElement('option');
         opt.value = index; 
         opt.textContent = key;
@@ -648,7 +648,7 @@
         tag.className = `tag ${isLearned ? 'tag-learned' : 'tag-new'}`;
         
         tag.innerHTML = `
-          ${vocab}${isLearned ? '(🔴 已學過)' : '(🟢 新生詞)'}
+          ${vocab} ${isLearned ? '(🔴 已學過)' : '(🟢 新生詞)'}
           <span class="tag-remove" onclick="removeVocab(${idx})">×</span>
         `;
         container.appendChild(tag);
@@ -684,7 +684,7 @@
       generateStep3Prompt();
     }
 
-    // STEP 3: 生成教學簡報 Prompt (強制 Code Block 與絕對 Enter 換行，確保 Copilot 不會吃掉換行符號)
+    // STEP 3: 生成教學簡報 Prompt (修正：極致強迫 Code Block 輸出與雙重換行保護)
     function generateStep3Prompt() {
       const select = document.getElementById('s1-select-lesson');
       const item = dangdaiData[select.value] || {};
@@ -702,11 +702,22 @@
         moduleTag = `模組${currentModuleIndex}`;
       }
 
-      const commonHeader = `你是一位專業的華語教學設計專家。請根據以下提供的「教學資料」，為東南亞學習者（以印尼與越南學生為主）設計一套結構嚴謹的教學簡報腳本。
+      const commonHeader = `你是一個華語簡報自動化腳本生成器。請根據以下提供的「教學資料」，為東南亞學習者（以印尼與越南學生為主）設計教學簡報腳本。
+
+【最高強制輸出指令：必須放入 Code Block 中】
+請「務必」將你產出的全部簡報腳本內容，完整包裹在單一的 \`\`\`markdown 開頭與 \`\`\` 結尾的【程式碼方框 (Code Block)】內部！
+這點非常重要，因為我必須點擊 Copilot / ChatGPT 介面上該方框右上角的「Copy（複製）」按鈕進行系統自動匯入。
+❌ 切勿直接輸出為普通 Markdown 文本或標題！
+❌ 切勿在程式碼方框外部寫任何前言或結語！請直接輸出 \`\`\`markdown 開頭！
+
+【內容排版嚴格規則】
+1. 每一頁 Slide 的標題格式必須獨立成一行：【Slide 數字】[ 頁面標題 ]
+2. 每一頁 Slide 之間，【必須 Enter 空兩行】！
+3. 關鍵字「頁面類型：」、「內容：」、「視覺PROMPT：」、「教師備忘錄：」必須【各自獨占一行】，後方內容紧接著換行！
 
 ---
 【輸入教學資料】
-- 課程資訊：${book}${lesson} (${textType}) (${moduleTag})
+- 課程資訊：${book} ${lesson} (${textType}) (${moduleTag})
 - 課文文本內容：
 ${content}
 
@@ -715,32 +726,33 @@ ${vocabFormatted}
 
 - 目標語法點清單：
 ${grammarFormatted}
----
-
-【最高輸出格式指令：強制 Code Block 且禁止壓縮換行】
-1. 請務必將「所有簡報內容」包裹在單一的 \`\`\`markdown 開頭與 \`\`\` 結尾的【程式碼方框】內！
-2. 每一頁的開頭格式必須完全為：【Slide 數字】[ 頁面標題 ]
-3. 每一頁 Slide 之間，必須按下 Enter 空一行！絕對不可以將不同 Slide 擠在同一行或同一個段落！
-4. 欄位關鍵字「頁面類型：」、「內容：」、「視覺PROMPT：」、「教師備忘錄：」必須各佔獨立一行，絕對不能合併在同一行！
-5. 絕對禁止輸出任何開場白（如「好的...」）或結語，請直接輸出 ```markdown 程式碼框。
 
 ---
-【輸出格式示範（請完全依此換行結構輸出於 Code Block 中）】
+【輸出格式示範（請完全依此換行結構輸出於 ```markdown 程式碼框中）】
 
 \`\`\`markdown
 【Slide 1】[ 封面 ]
+
 頁面類型：COVER
+
 內容：
 - 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
 - 學習目標：學會目標生詞與語法
+
 視覺PROMPT：A warm vector illustration representing the lesson theme
+
 教師備忘錄：引導學生朗讀標題。
 
+
 【Slide 2】[ 引起動機 ]
+
 頁面類型：NORMAL
+
 內容：
 - 簡答題題目內容
+
 視覺PROMPT：Vector illustration of a classroom scene
+
 教師備忘錄：提問學生生活經驗。
 \`\`\`
 `;
@@ -754,7 +766,7 @@ ${grammarFormatted}
 【簡報製作標準結構與流程】
 
 一、 準備活動（引起動機）
-- Slide 1【封面】：標示當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag}) 與學習目標。
+- Slide 1【封面】：標示當代中文課程 ${book}${lesson} (${textType}) (${moduleTag}) 與學習目標。
 - Slide 2【引起動機】：設計 1-2 個連結學生生活經驗的簡單問題，搭配 視覺PROMPT。
 
 二、 發展活動 — 生詞教學（5 個一組，結構組裝模式）
@@ -785,28 +797,41 @@ ${grammarFormatted}
       } else {
         const modulesPrompt = {
           1: `【本次生成任務：模組 1 - 準備活動（引起動機）】
-請生成以下 2 張 Slides：
+請於 ```markdown 程式碼框內生成以下 2 張 Slides：
+
 【Slide 1】[ 封面 ]
+
 頁面類型：COVER
+
 內容：
 - 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
 - 學習目標：學會目標生詞與語法
+
 視覺PROMPT：A warm vector illustration representing the lesson theme
+
 教師備忘錄：引導學生朗讀標題。
 
+
 【Slide 2】[ 引起動機 ]
+
 頁面類型：NORMAL
+
 內容：
 - 簡答題題目內容
+
 視覺PROMPT：Vector illustration of a classroom scene
+
 教師備忘錄：提問學生生活經驗。`,
           
           2: `【本次生成任務：模組 2 - 生詞教學（課文錨定與層次操練）】
 【Slide 1】[ 封面 ]
+
 頁面類型：COVER
+
 內容：
 - 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
 - 學習目標：學會本組目標生詞
+
 
 接續將目標生詞以「5 個生詞」為一組。每個生詞依序製作 3 張 Slides (頁面類型：VOCAB)：
 - 【Slide X】[ 生詞：課文錨定 ]
@@ -815,10 +840,13 @@ ${grammarFormatted}
 
           3: `【本次生成任務：模組 3 - 生詞綜合鞏固練習】
 【Slide 1】[ 封面 ]
+
 頁面類型：COVER
+
 內容：
 - 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
 - 學習目標：綜合鞏固目標生詞
+
 
 請針對目標生詞，設計 2 張綜合鞏固 Slides (頁面類型：NORMAL)：
 - 【Slide 2】[ 生詞鞏固：快問快答 ]
@@ -826,10 +854,13 @@ ${grammarFormatted}
 
           4: `【本次生成任務：模組 4 - 語法教學（四層次操練）】
 【Slide 1】[ 封面 ]
+
 頁面類型：COVER
+
 內容：
 - 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
 - 學習目標：掌握核心目標語法
+
 
 對每一個目標語法點，依序製作 4 張 Slides (頁面類型：NORMAL)：
 - 【Slide X】[ 語法：結構具象化 ] (公式請寫：- 公式：...)
@@ -839,10 +870,13 @@ ${grammarFormatted}
 
           5: `【本次生成任務：模組 5 - 課文組裝與理解確認】
 【Slide 1】[ 封面 ]
+
 頁面類型：COVER
+
 內容：
 - 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
 - 學習目標：課文朗讀與理解確認
+
 
 請生成以下 2 張 Slides (頁面類型：NORMAL)：
 - 【Slide 2】[ 課文：全文呈現 ]
@@ -850,10 +884,13 @@ ${grammarFormatted}
 
           6: `【本次生成任務：模組 6 - 綜合活動與延伸作業】
 【Slide 1】[ 封面 ]
+
 頁面類型：COVER
+
 內容：
 - 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
 - 學習目標：課堂總結與作業布置
+
 
 請生成以下 2 張 Slides (頁面類型：NORMAL)：
 - 【Slide 2】[ 綜合：總結與遊戲 ]
@@ -875,6 +912,7 @@ ${grammarFormatted}
     }
 
     function showToast(msg) {
+      const toast = document.getElementById('toast');
       toast.textContent = msg;
       toast.style.display = 'block';
       setTimeout(() => { toast.style.display = 'none'; }, 2000);
