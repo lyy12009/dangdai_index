@@ -563,7 +563,7 @@
       });
     }
 
-    // STEP 1: 生成課文 Prompt (強迫程式碼框包裹，確保標籤不被渲染吞掉)
+    // STEP 1: 生成課文 Prompt (負面提示 + 萬用模板 + markdown 相容標籤)
     function generateStep1Prompt() {
       const select = document.getElementById('s1-select-lesson');
       const item = dangdaiData[select.value] || {};
@@ -577,31 +577,28 @@
       const grammarCount = document.getElementById('s1-grammar-count').value;
       const topic = document.getElementById('s1-topic').value.trim();
 
-      const prompt = `你是一位專業的華語教材編寫專家。請為華語學習者撰寫一篇符合等級規格的【${textType}】文本。
+      const prompt = `請幫我撰寫一篇符合華語教學規格的【${textType}】課文與提煉生詞語法。
 
----
-【寫作規格與限制】
+寫作規格與限制：
 1. 課程錨定：當代中文課程 ${book} ${lesson} (${textType})
 2. 難度邊界上限：必須嚴格遵守 ${tbcl} 規範。請勿出現超出此等級的難詞。
 3. 主題情境：${topic}
 4. 文本長度：約 ${wordCount} 字。
 5. 目標生詞：請從撰寫的文本中，挑選出 ${vocabCount} 個符合該等級難度的「目標生詞」。
 6. 目標語法：請從撰寫的文本中，提煉出 ${grammarCount} 個核心「目標語法點」。
----
 
-【最高強制輸出指令：必須包裹在 ```markdown 程式碼框內】
-請「務必」將你輸出的內容，全部包裹在單一的 \`\`\`markdown 開頭與 \`\`\` 結尾的【程式碼方框 (Code Block)】內部！
-這能確保介面上出現「Copy（複製）」按鈕，且【】標籤不被富文本渲染吃掉。
-
-【Code Block 內部格式要求】
-請嚴格複製並使用以下三個【】標籤名稱，絕對不可修改標題文字，且不可在程式碼框外寫任何前言或結語：
+【限制條件（極度嚴格）】：
+1. 所有說明的文字與最終答案，都「必須」完全包在單一的 \`\`\`markdown 的程式碼框內。
+2. 程式碼框外部「不得」出現任何文字、前言、開場白或結語。
+3. 程式碼框內部「嚴禁」使用任何 Markdown 標頭符號（例如：###）。
+4. 必須嚴格保持以下結構與標題名稱：
 
 \`\`\`markdown
 【課文文本】
 (在此處輸出完整課文內容)
 
 【目標生詞】
-生詞1, 生詞2, 生詞3, 生詞4, 生詞5 (請務必全部寫在同一列，用逗號隔開)
+生詞1, 生詞2, 生詞3, 生詞4, 生詞5
 
 【目標語法點】
 1. 語法點1
@@ -611,333 +608,13 @@
       document.getElementById('s1-prompt-output').value = prompt;
     }
 
-    // STEP 2: 超強效防溢出解析器 (解決生詞/語法混入課文問題)
+    // STEP 2: 超強效防溢出解析器 (修復 Markdown 符號與邊界斷點)
     function parseAndAnalyze() {
       let rawText = document.getElementById('s2-raw-input').value;
       if (!rawText.trim()) return;
 
-      // 1. 強效文字預處理：把 [ ] 自動轉成 【 】，去除 ```markdown 與 ### ** 符號
+      // 1. 強效預處理：將 [ ] 轉為 【 】，剝離 ```markdown、```text、### 與 **
       let cleaned = rawText
         .replace(/\[/g, '【').replace(/\]/g, '】')
-        .replace(/```markdown\s*/gi, '').replace(/```\s*$/gi, '')
-        .replace(/###\s*/g, '').replace(/\*\*/g, '');
-
-      // 2. 精準擷取課文 (嚴格止於生詞或語法標籤，絕對不讓生詞溢出到課文中)
-      let content = '';
-      const contentMatch = cleaned.match(/【(?:課文文本|課文|文本)】([\s\S]*?)(?=【(?:目標生詞|生詞|目標詞彙|詞彙|目標語法|語法點|語法)】|$)/i);
-      if (contentMatch) {
-        content = contentMatch[1].trim();
-      } else {
-        // Fallback：手動切掉生詞與語法部分
-        content = cleaned.split(/【(?:目標生詞|生詞|目標詞彙|詞彙|目標語法|語法點|語法)】/i)[0].replace(/【(?:課文文本|課文|文本)】/i, '').trim();
-      }
-      document.getElementById('s2-edit-content').value = content;
-
-      // 3. 精準擷取生詞
-      parsedVocabList = [];
-      const vocabMatch = cleaned.match(/【(?:目標生詞|生詞|目標詞彙|詞彙)】([\s\S]*?)(?=【(?:目標語法點|目標語法|語法點|語法)】|$)/i);
-      if (vocabMatch) {
-        const rawVocabs = vocabMatch[1].split(/[,，\n]+/);
-        rawVocabs.forEach(item => {
-          const cleanItem = item.replace(/^[0-9\.\-\*]+/, '').trim();
-          if (cleanItem) parsedVocabList.push(cleanItem);
-        });
-      }
-
-      // 4. 精準擷取語法
-      const grammarMatch = cleaned.match(/【(?:目標語法點|目標語法|語法點|語法)】([\s\S]*?)$/i);
-      if (grammarMatch) {
-        const rawGrammar = grammarMatch[1].split('\n').map(l => l.replace(/^[0-9\.\-\*]+/, '').trim()).filter(Boolean);
-        document.getElementById('s2-edit-grammar').value = rawGrammar.join('\n');
-      }
-
-      renderVocabDiff();
-    }
-
-    function renderVocabDiff() {
-      const container = document.getElementById('s2-vocab-tags');
-      container.innerHTML = '';
-
-      if (parsedVocabList.length === 0) {
-        container.innerHTML = '<span style="color: var(--danger); font-size: 0.85rem; font-weight: 600;">⚠️ 未偵測到生詞標籤，請確認貼入文字是否包含【生詞】標題，或手動在下面欄位補充。</span>';
-        return;
-      }
-
-      parsedVocabList.forEach((vocab, idx) => {
-        const isLearned = learnedVocabSet.has(vocab);
-        const tag = document.createElement('div');
-        tag.className = `tag ${isLearned ? 'tag-learned' : 'tag-new'}`;
-        
-        tag.innerHTML = `
-          ${vocab} ${isLearned ? '(🔴 已學過)' : '(🟢 新生詞)'}
-          <span class="tag-remove" onclick="removeVocab(${idx})">×</span>
-        `;
-        container.appendChild(tag);
-      });
-    }
-
-    function removeVocab(idx) {
-      parsedVocabList.splice(idx, 1);
-      renderVocabDiff();
-    }
-
-    function proceedToStep3() {
-      generateStep3Prompt();
-      switchStep(3);
-    }
-
-    function toggleGenMode() {
-      const radios = document.getElementsByName('gen-mode');
-      for (const r of radios) {
-        if (r.checked) currentGenMode = r.value;
-      }
-      
-      const box = document.getElementById('modular-selector-box');
-      box.style.display = (currentGenMode === 'modular') ? 'block' : 'none';
-      generateStep3Prompt();
-    }
-
-    function switchModule(mIdx) {
-      currentModuleIndex = mIdx;
-      document.querySelectorAll('.module-tab').forEach((tab, idx) => {
-        tab.classList.toggle('active', idx + 1 === mIdx);
-      });
-      generateStep3Prompt();
-    }
-
-    // STEP 3: 生成簡報 Prompt (極致強迫 Code Block 輸出，防止被 Copilot 攤平)
-    function generateStep3Prompt() {
-      const select = document.getElementById('s1-select-lesson');
-      const item = dangdaiData[select.value] || {};
-      const book = item.冊 || '第一冊';
-      const lesson = item.課 || '第一課';
-      const textType = document.getElementById('s1-text-type').value;
-
-      const content = document.getElementById('s2-edit-content').value.trim();
-      const vocabFormatted = parsedVocabList.join(', ');
-      const grammarRaw = document.getElementById('s2-edit-grammar').value.trim();
-      const grammarFormatted = grammarRaw.split('\n').filter(s => s.trim()).join(', ');
-
-      let moduleTag = "全課完整版";
-      if (currentGenMode === 'modular') {
-        moduleTag = `模組${currentModuleIndex}`;
-      }
-
-      const commonHeader = `你是一個華語簡報自動化腳本生成器。請根據以下提供的「教學資料」，為東南亞學習者（以印尼與越南學生為主）設計教學簡報腳本。
-
-【最高強制輸出指令：必須完整放入 Code Block 中】
-請「務必」將你產出的全部簡報腳本內容，完整包裹在單一的 \`\`\`markdown 開頭與 \`\`\` 結尾的【程式碼方框 (Code Block)】內部！
-這點非常重要，因為我必須點擊 Copilot / ChatGPT 介面上該方框右上角的「Copy（複製）」按鈕進行系統自動匯入。
-❌ 切勿直接輸出為普通 Markdown 文本或標題！
-❌ 切勿在程式碼方框外部寫任何前言或結語！請直接輸出 \`\`\`markdown 開頭！
-
-【內容排版嚴格規則】
-1. 每一頁 Slide 的標題格式必須獨立成一行：【Slide 數字】[ 頁面標題 ]
-2. 每一頁 Slide 之間，【必須 Enter 空兩行】！
-3. 關鍵字「頁面類型：」、「內容：」、「視覺PROMPT：」、「教師備忘錄：」必須【各自獨占一行】，後方內容緊接著換行！
-
----
-【輸入教學資料】
-- 課程資訊：當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
-- 課文文本內容：
-${content}
-
-- 目標生詞清單：
-${vocabFormatted}
-
-- 目標語法點清單：
-${grammarFormatted}
-
----
-【輸出格式示範（請完全依此換行結構輸出於 ```markdown 程式碼框中）】
-
-\`\`\`markdown
-【Slide 1】[ 封面 ]
-
-頁面類型：COVER
-
-內容：
-- 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
-- 學習目標：學會目標生詞與語法
-
-視覺PROMPT：A warm vector illustration representing the lesson theme
-
-教師備忘錄：引導學生朗讀標題。
-
-
-【Slide 2】[ 引起動機 ]
-
-頁面類型：NORMAL
-
-內容：
-- 簡答題題目內容
-
-視覺PROMPT：Vector illustration of a classroom scene
-
-教師備忘錄：提問學生生活經驗。
-\`\`\`
-`;
-
-      let prompt = '';
-
-      if (currentGenMode === 'all') {
-        prompt = `${commonHeader}
----
-
-【簡報製作標準結構與流程】
-
-一、 準備活動（引起動機）
-- Slide 1【封面】：標示當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag}) 與學習目標。
-- Slide 2【引起動機】：設計 1-2 個連結學生生活經驗的簡單問題，搭配 視覺PROMPT。
-
-二、 發展活動 — 生詞教學（5 個一組，結構組裝模式）
-請將生詞清單自動以「5 個生詞」為一組進行切分（Group 1, Group 2...）。每個生詞依序製作 3 張 Slides (頁面類型：VOCAB)：
-- Slide 1【課文錨定】：呈現生詞與拼音、印尼文與越南文精簡翻譯、課文「原句/短語」。
-- Slide 2【情境遷移】：每頁給予 3–5 個不超綱的擴充短語/詞組及例句。
-- Slide 3【機械操練 (DRILL)】：每頁生成 3–5 題不超綱的看圖代換/填空題目（含 視覺PROMPT）。
-
-★【每 5 個生詞後的綜合鞏固練習】（強制插入 2 張 Slides）：
-- Slide A【DRILL 機械性快問快答】：提供固定句型框架，將這 5 個生詞帶入朗讀。
-- Slide B【PRACTICE 意義性問答】：設計 3–5 題情境問答或選詞填空題。
-
-三、 發展活動 — 語法教學（公式化與層次操練）
-對每個目標語法點，依序製作 4 張 Slides (頁面類型：NORMAL)：
-- Slide 1【結構具象化】：標示語法公式（開頭寫公式：）、拼音及 (印尼文對應；越南文對應)。
-- Slide 2【一致性例句】：提供 3–5 個正確例句（隔離變項）。
-- Slide 3【生詞套入操練】：設計 3–5 題填空/代換練習，優先套入剛學過的生詞。
-- Slide 4【產出與診斷】：設計 1 個微情境問答，並在【教師備忘錄】寫出診斷重點。
-
-四、 發展活動 — 課文組裝
-- Slide 1【課文呈現】：完整呈現課文，重點生詞與語法以【粗體】標示，備註朗讀活動方式。
-- Slide 2【語意理解確認】：設計 3-5 個事實性提問（Fact-based Questions）。
-
-五、 綜合活動與延伸活動
-- Slide 1【總結與遊戲】：規劃 1 個課堂互動遊戲題型（如配對賽）。
-- Slide 2【作業】：布置課後延伸練習或作業。
-`;
-      } else {
-        const modulesPrompt = {
-          1: `【本次生成任務：模組 1 - 準備活動（引起動機）】
-請於 ```markdown 程式碼框內生成以下 2 張 Slides：
-
-【Slide 1】[ 封面 ]
-
-頁面類型：COVER
-
-內容：
-- 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
-- 學習目標：學會目標生詞與語法
-
-視覺PROMPT：A warm vector illustration representing the lesson theme
-
-教師備忘錄：引導學生朗讀標題。
-
-
-【Slide 2】[ 引起動機 ]
-
-頁面類型：NORMAL
-
-內容：
-- 簡答題題目內容
-
-視覺PROMPT：Vector illustration of a classroom scene
-
-教師備忘錄：提問學生生活經驗。`,
-          
-          2: `【本次生成任務：模組 2 - 生詞教學（課文錨定與層次操練）】
-【Slide 1】[ 封面 ]
-
-頁面類型：COVER
-
-內容：
-- 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
-- 學習目標：學會本組目標生詞
-
-
-接續將目標生詞以「5 個生詞」為一組。每個生詞依序製作 3 張 Slides (頁面類型：VOCAB)：
-- 【Slide X】[ 生詞：課文錨定 ]
-- 【Slide Y】[ 生詞：情境遷移 ]
-- 【Slide Z】[ 生詞：機械操練 (DRILL) ]`,
-
-          3: `【本次生成任務：模組 3 - 生詞綜合鞏固練習】
-【Slide 1】[ 封面 ]
-
-頁面類型：COVER
-
-內容：
-- 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
-- 學習目標：綜合鞏固目標生詞
-
-
-請針對目標生詞，設計 2 張綜合鞏固 Slides (頁面類型：NORMAL)：
-- 【Slide 2】[ 生詞鞏固：快問快答 ]
-- 【Slide 3】[ 生詞鞏固：情境問答 ]`,
-
-          4: `【本次生成任務：模組 4 - 語法教學（四層次操練）】
-【Slide 1】[ 封面 ]
-
-頁面類型：COVER
-
-內容：
-- 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
-- 學習目標：掌握核心目標語法
-
-
-對每一個目標語法點，依序製作 4 張 Slides (頁面類型：NORMAL)：
-- 【Slide X】[ 語法：結構具象化 ] (公式請寫：- 公式：...)
-- 【Slide Y】[ 語法：一致性例句 ] (強調詞寫成 **語法點**)
-- 【Slide Z】[ 語法：生詞套入操練 ]
-- 【Slide W】[ 語法：產出與診斷 ]`,
-
-          5: `【本次生成任務：模組 5 - 課文組裝與理解確認】
-【Slide 1】[ 封面 ]
-
-頁面類型：COVER
-
-內容：
-- 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
-- 學習目標：課文朗讀與理解確認
-
-
-請生成以下 2 張 Slides (頁面類型：NORMAL)：
-- 【Slide 2】[ 課文：全文呈現 ]
-- 【Slide 3】[ 課文：語意理解確認 ]`,
-
-          6: `【本次生成任務：模組 6 - 綜合活動與延伸作業】
-【Slide 1】[ 封面 ]
-
-頁面類型：COVER
-
-內容：
-- 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
-- 學習目標：課堂總結與作業布置
-
-
-請生成以下 2 張 Slides (頁面類型：NORMAL)：
-- 【Slide 2】[ 綜合：總結與遊戲 ]
-- 【Slide 3】[ 綜合：課後作業 ]`
-        };
-
-        prompt = `${commonHeader}\n\n${modulesPrompt[currentModuleIndex]}`;
-      }
-
-      document.getElementById('s3-prompt-output').value = prompt;
-    }
-
-    function copyText(elementId) {
-      const text = document.getElementById(elementId).value;
-      if (!text) return;
-      navigator.clipboard.writeText(text).then(() => {
-        showToast('✅ 已成功複製到剪貼簿！');
-      });
-    }
-
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 2000);
-    }
-  </script>
-</body>
-</html>
+        .replace(/
+http://googleusercontent.com/immersive_entry_chip/0
