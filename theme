@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>當代中文課程 - 智慧課文生成與簡報 Prompt 工作流</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #cbd5e1;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --badge-new: #dcfce7;
+      --badge-learned: #fee2e2;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      padding: 20px;
+      line-height: 1.5;
+    }
+
+    header {
+      max-width: 1400px;
+      margin: 0 auto 20px auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 15px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .status-badge {
+      font-size: 0.875rem;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      background-color: #e2e8f0;
+      color: var(--text-muted);
+    }
+
+    .status-badge.active {
+      background-color: #dcfce7;
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    /* Stepper 導覽列 */
+    .stepper {
+      max-width: 1400px;
+      margin: 0 auto 20px auto;
+      display: flex;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .step-btn {
+      flex: 1;
+      padding: 14px 10px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.95rem;
+      background: #f1f5f9;
+      color: var(--text-muted);
+      border: none;
+      border-right: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .step-btn:last-child {
+      border-right: none;
+    }
+
+    .step-btn.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .step-content {
+      display: none;
+    }
+
+    .step-content.active {
+      display: block;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 1024px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      border-bottom: 2px solid #f1f5f9;
+      padding-bottom: 8px;
+      color: var(--text-main);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    select, input[type="text"], input[type="number"], textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.95rem;
+      background-color: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus, input[type="text"]:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+    }
+
+    .sub-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    textarea {
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    .code-output {
+      background-color: #f8fafc;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.875rem;
+      white-space: pre-wrap;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+    }
+
+    /* 按鈕樣式 */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.2s;
+      gap: 8px;
+    }
+
+    .btn-primary { background-color: var(--primary); color: #fff; }
+    .btn-primary:hover { background-color: var(--primary-hover); }
+    .btn-success { background-color: var(--success); color: #fff; }
+    .btn-success:hover { background-color: #15803d; }
+    .btn-secondary { background-color: #64748b; color: #fff; }
+    .btn-secondary:hover { background-color: #475569; }
+
+    /* Tag 標籤與 Diff 比對視覺化 */
+    .tag-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      min-height: 48px;
+      background: #fafafa;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .tag-new {
+      background-color: var(--badge-new);
+      color: #15803d;
+      border: 1px solid #86efac;
+    }
+
+    .tag-learned {
+      background-color: var(--badge-learned);
+      color: #b91c1c;
+      border: 1px solid #fca5a5;
+    }
+
+    .tag-remove {
+      cursor: pointer;
+      font-weight: bold;
+      margin-left: 4px;
+    }
+
+    .info-box {
+      padding: 10px 14px;
+      border-radius: 6px;
+      background-color: #eff6ff;
+      border-left: 4px solid var(--primary);
+      font-size: 0.875rem;
+      color: #1e40af;
+    }
+
+    /* 模組選擇 Tab */
+    .module-tab-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .module-tab {
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: #f1f5f9;
+      color: var(--text-main);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .module-tab.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #0f172a;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      display: none;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>當代中文課程 - 智慧課文生成與簡報 Prompt 工作流</h1>
+    <div id="data-status" class="status-badge">資料狀態：讀取中...</div>
+  </header>
+
+  <div class="stepper">
+    <button id="step-btn-1" class="step-btn active" onclick="switchStep(1)">1. 課文生成 Prompt 組裝</button>
+    <button id="step-btn-2" class="step-btn" onclick="switchStep(2)">2. 比對分析與微調 (Diff)</button>
+    <button id="step-btn-3" class="step-btn" onclick="switchStep(3)">3. 生成教學簡報 Prompt</button>
+  </div>
+
+  <div class="container">
+
+    <div id="step-1" class="step-content active">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">基本參數設定</div>
+          
+          <div class="sub-grid">
+            <div class="form-group">
+              <label for="s1-select-lesson">目標冊課 (作為歷史累積錨點)：</label>
+              <select id="s1-select-lesson"></select>
+            </div>
+            <div class="form-group">
+              <label for="s1-tbcl-info">自動判定 TBCL/CEFR 等級：</label>
+              <input type="text" id="s1-tbcl-info" readonly style="background: #f1f5f9; font-weight: 600;">
+            </div>
+          </div>
+
+          <div class="sub-grid">
+            <div class="form-group">
+              <label for="s1-text-type">文體類型：</label>
+              <select id="s1-text-type">
+                <option value="對話">對話 (Dialogue)</option>
+                <option value="短文">短文 (Article)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="s1-word-count">預計字數：</label>
+              <input type="number" id="s1-word-count" value="150" step="10">
+            </div>
+          </div>
+
+          <div class="sub-grid">
+            <div class="form-group">
+              <label for="s1-vocab-count">目標生詞數量 (n)：</label>
+              <input type="number" id="s1-vocab-count" value="6" min="1" max="15">
+            </div>
+            <div class="form-group">
+              <label for="s1-grammar-count">目標語法點數量 (n)：</label>
+              <input type="number" id="s1-grammar-count" value="2" min="1" max="5">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="s1-topic">教學主題與情境描述：</label>
+            <textarea id="s1-topic" rows="4" placeholder="例如：在夜市購買衣服、詢問價格並嘗試議價。"></textarea>
+          </div>
+
+          <button class="btn btn-primary" onclick="generateStep1Prompt()">🚀 生成「LLM 寫課文」Prompt</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">輸出：Step 1 LLM Prompt</div>
+          <div class="form-group" style="flex-grow: 1;">
+            <textarea id="s1-prompt-output" class="code-output" style="height: 100%; min-height: 400px;" readonly placeholder="點擊左側按鈕生成 Prompt..."></textarea>
+          </div>
+          <button class="btn btn-success" onclick="copyText('s1-prompt-output')">📋 複製 Prompt 並貼至 Copilot/ChatGPT</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="step-2" class="step-content">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">貼入 LLM 生成的初步結果</div>
+          <div class="info-box">請將包含 &lt;text_content&gt; 等 XML 標籤的 LLM 回覆完整貼入下方，系統將自動解析與比對。</div>
+          
+          <div class="form-group">
+            <label for="s2-raw-input">LLM 回覆原始文字：</label>
+            <textarea id="s2-raw-input" rows="12" placeholder="貼上 LLM 生成的內容..."></textarea>
+          </div>
+          
+          <button class="btn btn-primary" onclick="parseAndAnalyze()">🔍 解析標籤並執行歷史詞庫 Diff 比對</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">詞庫 Diff 審查與編輯儀表板</div>
+
+          <div class="form-group">
+            <label>生詞審查 (自動對照第 1 課至前一課已學詞庫)：</label>
+            <div id="s2-vocab-tags" class="tag-container">
+              <span style="color: var(--text-muted); font-size: 0.85rem;">等待解析...</span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+              🟢 綠色：合格新生詞 | 🔴 紅色：警告！該詞在歷史課程已學過（點擊 × 可刪除）
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="s2-edit-content">定稿課文文本：</label>
+            <textarea id="s2-edit-content" rows="6"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="s2-edit-grammar">定稿目標語法點 (一行一個)：</label>
+            <textarea id="s2-edit-grammar" rows="3"></textarea>
+          </div>
+
+          <button class="btn btn-success" onclick="proceedToStep3()">✅ 確認內容無誤，前往 Step 3 生成簡報 Prompt</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="step-3" class="step-content">
+      <div class="card">
+        <div class="card-title">
+          <span>最終產出：教學簡報設計 Prompt</span>
+          <div style="font-size: 0.9rem; font-weight: normal; display: flex; gap: 15px; align-items: center;">
+            <label><input type="radio" name="gen-mode" value="all" checked onchange="toggleGenMode()"> 一次性生成 (長 Context 模型)</label>
+            <label><input type="radio" name="gen-mode" value="modular" onchange="toggleGenMode()"> 分六大模組生成 (防 Token 溢出與截斷)</label>
+          </div>
+        </div>
+
+        <div id="modular-selector-box" class="info-box" style="display: none; margin-bottom: 10px;">
+          <div style="margin-bottom: 8px; font-weight: 700;">⚙️ 請選擇要生成的簡報模組（Prompt 自動與 Python 解析器相容）：</div>
+          <div class="module-tab-group">
+            <button class="module-tab active" onclick="switchModule(1)">模組 1: 準備活動</button>
+            <button class="module-tab" onclick="switchModule(2)">模組 2: 生詞教學</button>
+            <button class="module-tab" onclick="switchModule(3)">模組 3: 生詞鞏固</button>
+            <button class="module-tab" onclick="switchModule(4)">模組 4: 語法教學</button>
+            <button class="module-tab" onclick="switchModule(5)">模組 5: 課文組裝</button>
+            <button class="module-tab" onclick="switchModule(6)">模組 6: 綜合與延伸</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <textarea id="s3-prompt-output" class="code-output" rows="18" readonly></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-success" onclick="copyText('s3-prompt-output')">📋 複製當前 Prompt 到剪貼簿</button>
+          <button class="btn btn-secondary" onclick="switchStep(2)">⬅️ 返回 Step 2 微調</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="toast" class="toast">已成功複製到剪貼簿！</div>
+
+  <script>
+    let dangdaiData = [];
+    let learnedVocabSet = new Set(); 
+    let parsedVocabList = [];
+    let currentGenMode = 'all'; // 'all' 或 'modular'
+    let currentModuleIndex = 1;
+
+    // 頁面初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchData();
+    });
+
+    async function fetchData() {
+      const statusBadge = document.getElementById('data-status');
+      try {
+        const response = await fetch('./DANGDAI_ALL.json');
+        if (!response.ok) throw new Error('HTTP status ' + response.status);
+        const data = await response.json();
+        dangdaiData = Array.isArray(data) ? data : [data];
+        initLessonSelect();
+        statusBadge.textContent = `資料狀態：已成功載入 (${dangdaiData.length} 課歷史詞庫)`;
+        statusBadge.classList.add('active');
+      } catch (err) {
+        console.error(err);
+        statusBadge.textContent = '資料狀態：錯誤！無法載入 DANGDAI_ALL.json';
+        statusBadge.style.backgroundColor = '#fecaca';
+        statusBadge.style.color = '#dc2626';
+      }
+    }
+
+    function initLessonSelect() {
+      const select = document.getElementById('s1-select-lesson');
+      select.innerHTML = '';
+      
+      dangdaiData.forEach((item, index) => {
+        const book = item.冊 || '';
+        const lesson = item.課 || '';
+        const key = `${book} ${lesson}`.trim();
+        const opt = document.createElement('option');
+        opt.value = index; 
+        opt.textContent = key;
+        select.appendChild(opt);
+      });
+
+      select.addEventListener('change', updateStep1TBCL);
+      updateStep1TBCL();
+    }
+
+    function updateStep1TBCL() {
+      const select = document.getElementById('s1-select-lesson');
+      const index = parseInt(select.value, 10);
+      const item = dangdaiData[index] || {};
+      
+      const book = item.冊 || '';
+      const lessonStr = item.課 || '';
+      const lessonNum = parseInt(lessonStr.replace(/[^0-9]/g, ''), 10) || 1;
+
+      let tbcl = "TBCL 1 (準 A1)";
+      if (book.includes("第一冊")) {
+        tbcl = lessonNum <= 5 ? "TBCL 1 (準 A1) / Novice Mid" : "TBCL 2 (A1) / Novice High";
+      } else if (book.includes("第二冊")) {
+        tbcl = "TBCL 3 (A2) / Intermediate Low";
+      } else if (book.includes("第三冊")) {
+        tbcl = "TBCL 4 (B1) / Intermediate Mid";
+      } else if (book.includes("第四冊")) {
+        tbcl = "TBCL 5 (B2) / Intermediate High";
+      }
+
+      document.getElementById('s1-tbcl-info').value = tbcl;
+      updateLearnedVocabSet(index);
+    }
+
+    function updateLearnedVocabSet(targetIndex) {
+      learnedVocabSet.clear();
+      for (let i = 0; i < targetIndex; i++) {
+        const item = dangdaiData[i];
+        ['對話1生詞', '對話2生詞', '文章1生詞', '文章2生詞'].forEach(key => {
+          if (Array.isArray(item[key])) {
+            item[key].forEach(v => {
+              if (v) learnedVocabSet.add(v.trim());
+            });
+          }
+        });
+      }
+    }
+
+    function switchStep(stepNum) {
+      document.querySelectorAll('.step-btn').forEach((btn, idx) => {
+        btn.classList.toggle('active', idx + 1 === stepNum);
+      });
+      document.querySelectorAll('.step-content').forEach((content, idx) => {
+        content.classList.toggle('active', idx + 1 === stepNum);
+      });
+    }
+
+    // STEP 1: 生成課文 Prompt
+    function generateStep1Prompt() {
+      const select = document.getElementById('s1-select-lesson');
+      const item = dangdaiData[select.value] || {};
+      const book = item.冊 || '第一冊';
+      const lesson = item.課 || '第一課';
+      const tbcl = document.getElementById('s1-tbcl-info').value;
+
+      const textType = document.getElementById('s1-text-type').value;
+      const wordCount = document.getElementById('s1-word-count').value;
+      const vocabCount = document.getElementById('s1-vocab-count').value;
+      const grammarCount = document.getElementById('s1-grammar-count').value;
+      const topic = document.getElementById('s1-topic').value.trim();
+
+      const prompt = `你是一位專業的華語教材編寫專家。請為華語學習者撰寫一篇符合等級規格的【${textType}】文本。
+
+---
+【寫作規格與限制】
+1. 課程錨定：當代中文課程 ${book} ${lesson}
+2. 難度邊界上限：必須嚴格遵守 ${tbcl} 規範。請勿出現超出此等級的難詞。
+3. 主題情境：${topic}
+4. 文本長度：約 ${wordCount} 字。
+5. 目標生詞：請從撰寫的文本中，挑選出 ${vocabCount} 個符合該等級難度的「目標生詞」。
+6. 目標語法：請從撰寫的文本中，提煉出 ${grammarCount} 個核心「目標語法點」。
+---
+
+【輸出格式嚴格要求（必須完全使用以下 XML 標籤包裹，禁止任意刪除標籤或添加前言結語）】
+
+<text_content>
+(在此處輸出完整課文內容)
+</text_content>
+
+<vocab_list>
+生詞1, 生詞2, 生詞3, 生詞4, 生詞5 (請務必全部寫在同一列，並用逗號隔開)
+</vocab_list>
+
+<grammar_list>
+1. 語法點1
+2. 語法點2
+</grammar_list>`;
+
+      document.getElementById('s1-prompt-output').value = prompt;
+    }
+
+    // STEP 2: 解析 LLM 內容與 Diff 比對
+    function parseAndAnalyze() {
+      const rawText = document.getElementById('s2-raw-input').value;
+      if (!rawText.trim()) return;
+
+      const contentMatch = rawText.match(/<text_content>([\s\S]*?)<\/text_content>/i) || rawText.match(/【課文文本】([\s\S]*?)(?=【目標生詞】|<vocab_list>|$)/i);
+      const vocabMatch = rawText.match(/<vocab_list>([\s\S]*?)<\/vocab_list>/i) || rawText.match(/【目標生詞】([\s\S]*?)(?=【目標語法點】|<grammar_list>|$)/i);
+      const grammarMatch = rawText.match(/<grammar_list>([\s\S]*?)<\/grammar_list>/i) || rawText.match(/【目標語法點】([\s\S]*?)$/i);
+
+      const content = contentMatch ? contentMatch[1].trim() : rawText;
+      document.getElementById('s2-edit-content').value = content;
+
+      parsedVocabList = [];
+      if (vocabMatch) {
+        const rawVocabs = vocabMatch[1].split(/[,，\n]+/);
+        rawVocabs.forEach(item => {
+          const cleaned = item.replace(/^[0-9\.\-\*]+/, '').replace(/<\/?vocab_list>/g, '').trim();
+          if (cleaned) parsedVocabList.push(cleaned);
+        });
+      }
+
+      if (grammarMatch) {
+        const rawGrammar = grammarMatch[1].split('\n').map(l => l.replace(/^[0-9\.\-\*]+/, '').replace(/<\/?grammar_list>/g, '').trim()).filter(Boolean);
+        document.getElementById('s2-edit-grammar').value = rawGrammar.join('\n');
+      }
+
+      renderVocabDiff();
+    }
+
+    function renderVocabDiff() {
+      const container = document.getElementById('s2-vocab-tags');
+      container.innerHTML = '';
+
+      if (parsedVocabList.length === 0) {
+        container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">未偵測到生詞標籤</span>';
+        return;
+      }
+
+      parsedVocabList.forEach((vocab, idx) => {
+        const isLearned = learnedVocabSet.has(vocab);
+        const tag = document.createElement('div');
+        tag.className = `tag ${isLearned ? 'tag-learned' : 'tag-new'}`;
+        
+        tag.innerHTML = `
+          ${vocab} ${isLearned ? '(🔴 已學過)' : '(🟢 新生詞)'}
+          <span class="tag-remove" onclick="removeVocab(${idx})">×</span>
+        `;
+        container.appendChild(tag);
+      });
+    }
+
+    function removeVocab(idx) {
+      parsedVocabList.splice(idx, 1);
+      renderVocabDiff();
+    }
+
+    function proceedToStep3() {
+      generateStep3Prompt();
+      switchStep(3);
+    }
+
+    // STEP 3 模式與模組切換邏輯
+    function toggleGenMode() {
+      const radios = document.getElementsByName('gen-mode');
+      for (const r of radios) {
+        if (r.checked) currentGenMode = r.value;
+      }
+      
+      const box = document.getElementById('modular-selector-box');
+      box.style.display = (currentGenMode === 'modular') ? 'block' : 'none';
+      generateStep3Prompt();
+    }
+
+    function switchModule(mIdx) {
+      currentModuleIndex = mIdx;
+      document.querySelectorAll('.module-tab').forEach((tab, idx) => {
+        tab.classList.toggle('active', idx + 1 === mIdx);
+      });
+      generateStep3Prompt();
+    }
+
+    // STEP 3: 生成教學簡報 Prompt (完全對齊 Python pptx 解析器規格)
+    function generateStep3Prompt() {
+      const select = document.getElementById('s1-select-lesson');
+      const item = dangdaiData[select.value] || {};
+      const book = item.冊 || '第一冊';
+      const lesson = item.課 || '第一課';
+      const tbcl = document.getElementById('s1-tbcl-info').value;
+
+      const content = document.getElementById('s2-edit-content').value.trim();
+      const vocabFormatted = parsedVocabList.join(', ');
+      const grammarRaw = document.getElementById('s2-edit-grammar').value.trim();
+      const grammarFormatted = grammarRaw.split('\n').filter(s => s.trim()).join(', ');
+
+      const commonHeader = `你是一位專業的華語教學設計專家。請根據以下「教學資料」，為東南亞學習者（印尼與越南學生為主）設計教學簡報腳本。
+
+---
+【輸入教學資料】
+- 課程資訊：${book} ${lesson}
+- 難度規範：嚴格遵守 ${tbcl}（切勿出現超綱詞彙）
+- 課文文本內容：
+${content}
+
+- 目標生詞清單：
+${vocabFormatted}
+
+- 目標語法點清單：
+${grammarFormatted}
+---
+
+【PPTX 自動解析引擎相容規範（強制遵守，違反將導致程式崩潰）】
+1. 每張 Slide 標題必須嚴格使用【Slide 數字】[ 頁面標題 ] 開頭。
+2. 必須使用以下四大標準關鍵字區段，切勿自行更改欄位名稱：
+   - 頁面類型：(COVER, VOCAB, 或 NORMAL)
+   - 內容：
+   - 視覺PROMPT：
+   - 教師備忘錄：
+3. 「內容：」區段內的格式規範：
+   - 語法公式請開頭寫「公式：」，如「公式：因為…所以…(yīnwèi... suǒyǐ...)」。
+   - 生詞/語法格式：生詞/語法(拼音)
+   - 翻譯格式：下一行統一為 (印尼文對應；越南文對應)，極致精簡。
+   - 語法關鍵字請一律用 **粗體** 包裹（如 **因為**）。
+4. 純腳本輸出，禁止輸出任何前言或結語。
+
+【標準 Slide 輸出範本】
+【Slide 1】[ Slide標題名稱 ]
+頁面類型：NORMAL
+內容：
+- 公式：語法結構公式(拼音)
+- 生詞/語法(拼音)
+- (印尼文對應；越南文對應)
+- 例句或題目內容
+視覺PROMPT：AI 繪圖提示詞 (具體英文畫面描述)
+教師備忘錄：教學步驟、口頭指令或診斷重點`;
+
+      let prompt = '';
+
+      if (currentGenMode === 'all') {
+        prompt = `${commonHeader}
+
+【本次生成任務：一次性生成完整簡報腳本 (All-in-One)】
+
+一、 準備活動（引起動機）
+- Slide 1【封面】(頁面類型：COVER) | Slide 2【引起動機】
+
+二、 發展活動 — 生詞教學（5 個一組）
+每 5 個生詞一組，每個生詞依序 3 張 Slides (頁面類型：VOCAB)：
+- Slide 1【課文錨定】 | Slide 2【情境遷移】 | Slide 3【機械操練】
+★ 每 5 個生詞後插入：Slide A【快問快答】與 Slide B【意義性問答】
+
+三、 發展活動 — 語法教學（四層次操練）
+每個語法點 4 張 Slides (頁面類型：NORMAL)：
+- Slide 1【結構具象化】 | Slide 2【一致性例句】 | Slide 3【生詞套入操練】 | Slide 4【產出與診斷】
+
+四、 課文組裝與總結
+- Slide 1【課文呈現】 | Slide 2【語意理解確認】 | Slide 3【延伸活動與作業】`;
+      } else {
+        const modulesPrompt = {
+          1: `【本次生成任務：模組 1 - 準備活動（引起動機）】
+請嚴格遵守解析規範生成以下 2 張 Slides：
+- Slide 1【封面】 (頁面類型：COVER)：標示冊課、課名、學習目標。
+- Slide 2【引起動機】：設計 1-2 個連結學生生活經驗的簡單問題，搭配 視覺PROMPT。`,
+          
+          2: `【本次生成任務：模組 2 - 生詞教學（課文錨定與層次操練）】
+請將目標生詞清單以「5 個生詞」為一組（Group 1, Group 2...）。每個生詞依序製作 3 張 Slides (頁面類型：VOCAB)：
+- Slide 1【課文錨定】：呈現生詞與拼音、印尼與越南精簡翻譯、課文原句。
+- Slide 2【情境遷移】：提供 3–5 個不超綱的擴充短語及例句。
+- Slide 3【機械操練 (DRILL)】：提供 3–5 題不超綱的看圖代換/填空題目（含 視覺PROMPT）。`,
+
+          3: `【本次生成任務：模組 3 - 生詞綜合鞏固練習】
+請針對目標生詞，設計 2 張綜合鞏固 Slides：
+- Slide A【DRILL 機械性快問快答】：提供固定句型框架，帶入朗讀與快速代換。
+- Slide B【PRACTICE 意義性問答】：設計 3–5 題不超綱的情境問答或選詞填空題。`,
+
+          4: `【本次生成任務：模組 4 - 語法教學（四層次操練）】
+對每一個目標語法點，依序製作 4 張 Slides (頁面類型：NORMAL)：
+- Slide 1【結構具象化】：標示語法公式（請以「公式：」開頭）、拼音及 (印尼文對應；越南文對應)。
+- Slide 2【一致性例句】：提供 3–5 個正確例句（隔離變項），重點關鍵字以 **粗體** 包裹。
+- Slide 3【生詞套入操練】：設計 3–5 題填空/代換練習，優先套入目標生詞。
+- Slide 4【產出與診斷】：設計 1 個微情境問答，並在 教師備忘錄 寫出診斷重點。`,
+
+          5: `【本次生成任務：模組 5 - 課文組裝與理解確認】
+請生成以下 2 張 Slides：
+- Slide 1【課文呈現】：完整呈現課文，重點生詞與語法以 **粗體** 標示，備註朗讀活動方式。
+- Slide 2【語意理解確認】：設計 3-5 個事實性提問（Fact-based Questions）。`,
+
+          6: `【本次生成任務：模組 6 - 綜合活動與延伸作業】
+請生成以下 2 張 Slides：
+- Slide 1【總結與遊戲】：規劃 1 個課堂互動遊戲題型（如配對賽）。
+- Slide 2【作業】：布置課後延伸練習或作業。`
+        };
+
+        prompt = `${commonHeader}\n\n${modulesPrompt[currentModuleIndex]}`;
+      }
+
+      document.getElementById('s3-prompt-output').value = prompt;
+    }
+
+    function copyText(elementId) {
+      const text = document.getElementById(elementId).value;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('✅ 已成功複製到剪貼簿！');
+      });
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 2000);
+    }
+  </script>
+</body>
+</html>
