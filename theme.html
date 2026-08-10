@@ -344,10 +344,12 @@
 
           <div class="sub-grid">
             <div class="form-group">
-              <label for="s1-text-type">文體類型：</label>
+              <label for="s1-text-type">文本類型 (影響產出的檔名標記)：</label>
               <select id="s1-text-type">
-                <option value="對話">對話 (Dialogue)</option>
-                <option value="短文">短文 (Article)</option>
+                <option value="對話1">對話1</option>
+                <option value="對話2">對話2</option>
+                <option value="文章1">文章1</option>
+                <option value="文章2">文章2</option>
               </select>
             </div>
             <div class="form-group">
@@ -389,11 +391,11 @@
       <div class="grid-2">
         <div class="card">
           <div class="card-title">貼入 LLM 生成的初步結果</div>
-          <div class="info-box">請將 LLM 回傳的完整內容直接貼入下方，系統將自動擷取與比對歷史詞庫。</div>
+          <div class="info-box">請將 Copilot / ChatGPT 回傳的完整內文貼入下方，系統將自動解析課文、生詞與語法點。</div>
           
           <div class="form-group">
             <label for="s2-raw-input">LLM 回覆原始文字：</label>
-            <textarea id="s2-raw-input" rows="12" placeholder="貼上 LLM 生成的內容..."></textarea>
+            <textarea id="s2-raw-input" rows="12" placeholder="貼上 Copilot/ChatGPT 生成的完整內容..."></textarea>
           </div>
           
           <button class="btn btn-primary" onclick="parseAndAnalyze()">🔍 解析標籤並執行歷史詞庫 Diff 比對</button>
@@ -432,13 +434,13 @@
         <div class="card-title">
           <span>最終產出：教學簡報設計 Prompt</span>
           <div style="font-size: 0.9rem; font-weight: normal; display: flex; gap: 15px; align-items: center;">
-            <label><input type="radio" name="gen-mode" value="all" checked onchange="toggleGenMode()"> 一次性生成 (長 Context 模型)</label>
+            <label><input type="radio" name="gen-mode" value="all" checked onchange="toggleGenMode()"> 一次性生成 (全課完整版)</label>
             <label><input type="radio" name="gen-mode" value="modular" onchange="toggleGenMode()"> 分六大模組生成 (防 Token 溢出與截斷)</label>
           </div>
         </div>
 
         <div id="modular-selector-box" class="info-box" style="display: none; margin-bottom: 10px;">
-          <div style="margin-bottom: 8px; font-weight: 700;">⚙️ 請選擇要生成的簡報模組：</div>
+          <div style="margin-bottom: 8px; font-weight: 700;">⚙️ 請選擇要生成的簡報模組（Prompt 已自動整合檔名識別碼）：</div>
           <div class="module-tab-group">
             <button class="module-tab active" onclick="switchModule(1)">模組 1: 準備活動</button>
             <button class="module-tab" onclick="switchModule(2)">模組 2: 生詞教學</button>
@@ -471,7 +473,7 @@
     let dangdaiData = [];
     let learnedVocabSet = new Set(); 
     let parsedVocabList = [];
-    let currentGenMode = 'all'; // 'all' 或 'modular'
+    let currentGenMode = 'all'; 
     let currentModuleIndex = 1;
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -561,7 +563,7 @@
       });
     }
 
-    // STEP 1: 生成課文 Prompt
+    // STEP 1: 生成課文 Prompt (嚴格要求標題關鍵字)
     function generateStep1Prompt() {
       const select = document.getElementById('s1-select-lesson');
       const item = dangdaiData[select.value] || {};
@@ -579,7 +581,7 @@
 
 ---
 【寫作規格與限制】
-1. 課程錨定：當代中文課程 ${book} ${lesson}
+1. 課程錨定：當代中文課程 ${book} ${lesson} (${textType})
 2. 難度邊界上限：必須嚴格遵守 ${tbcl} 規範。請勿出現超出此等級的難詞。
 3. 主題情境：${topic}
 4. 文本長度：約 ${wordCount} 字。
@@ -587,14 +589,13 @@
 6. 目標語法：請從撰寫的文本中，提煉出 ${grammarCount} 個核心「目標語法點」。
 ---
 
-【輸出格式要求】
-請嚴格按照以下標準標記輸出，切勿包含額外的開場白或結語：
+【輸出格式嚴格要求（請務必保留以下三個【】標準標題，切勿更改標題文字或輸出開場白/結語）】
 
 【課文文本】
 (在此處輸出完整課文內容)
 
 【目標生詞】
-生詞1, 生詞2, 生詞3, 生詞4, 生詞5 (請務必全部寫在同一列，並用逗號隔開)
+生詞1, 生詞2, 生詞3, 生詞4, 生詞5 (請務必全部寫在同一列，用逗號隔開)
 
 【目標語法點】
 1. 語法點1
@@ -603,29 +604,37 @@
       document.getElementById('s1-prompt-output').value = prompt;
     }
 
-    // STEP 2: 解析 LLM 內容與 Diff 比對
+    // STEP 2: 多重容錯解析器 (相容所有 LLM 標題變異)
     function parseAndAnalyze() {
       const rawText = document.getElementById('s2-raw-input').value;
       if (!rawText.trim()) return;
 
-      const contentMatch = rawText.match(/【課文文本】([\s\S]*?)(?=【目標生詞】|$)/i);
-      const vocabMatch = rawText.match(/【目標生詞】([\s\S]*?)(?=【目標語法點】|$)/i);
-      const grammarMatch = rawText.match(/【目標語法點】([\s\S]*?)$/i);
+      // 1. 多重容錯正則：匹配【課文文本】/【課文】/<text_content>
+      const contentMatch = rawText.match(/(?:【(?:課文文本|課文|文本)】|<text_content>)([\s\S]*?)(?=(?:【(?:目標生詞|生詞|目標詞彙|詞彙)】|<vocab_list>|$))/i);
+      
+      // 2. 多重容錯正則：匹配【目標生詞】/【生詞】/<vocab_list>
+      const vocabMatch = rawText.match(/(?:【(?:目標生詞|生詞|目標詞彙|詞彙)】|<vocab_list>)([\s\S]*?)(?=(?:【(?:目標語法點|目標語法|語法點|語法)】|<grammar_list>|$))/i);
+      
+      // 3. 多重容錯正則：匹配【目標語法點】/【目標語法】/【語法點】/【語法】/<grammar_list>
+      const grammarMatch = rawText.match(/(?:【(?:目標語法點|目標語法|語法點|語法)】|<grammar_list>)([\s\S]*?)$/i);
 
+      // 設定課文文本
       const content = contentMatch ? contentMatch[1].trim() : rawText;
       document.getElementById('s2-edit-content').value = content;
 
+      // 解析生詞清單
       parsedVocabList = [];
       if (vocabMatch) {
         const rawVocabs = vocabMatch[1].split(/[,，\n]+/);
         rawVocabs.forEach(item => {
-          const cleaned = item.replace(/^[0-9\.\-\*]+/, '').trim();
+          const cleaned = item.replace(/^[0-9\.\-\*]+/, '').replace(/<\/?vocab_list>/g, '').trim();
           if (cleaned) parsedVocabList.push(cleaned);
         });
       }
 
+      // 解析語法清單
       if (grammarMatch) {
-        const rawGrammar = grammarMatch[1].split('\n').map(l => l.replace(/^[0-9\.\-\*]+/, '').trim()).filter(Boolean);
+        const rawGrammar = grammarMatch[1].split('\n').map(l => l.replace(/^[0-9\.\-\*]+/, '').replace(/<\/?grammar_list>/g, '').trim()).filter(Boolean);
         document.getElementById('s2-edit-grammar').value = rawGrammar.join('\n');
       }
 
@@ -637,7 +646,7 @@
       container.innerHTML = '';
 
       if (parsedVocabList.length === 0) {
-        container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">未偵測到生詞標籤</span>';
+        container.innerHTML = '<span style="color: var(--danger); font-size: 0.85rem; font-weight: 600;">⚠️ 未偵測到生詞標籤，請確認 LLM 輸出是否包含【生詞】或【目標生詞】標題，或手動手打補充。</span>';
         return;
       }
 
@@ -683,23 +692,30 @@
       generateStep3Prompt();
     }
 
-    // STEP 3: 生成教學簡報 Prompt (完全採納原版 index.html 堅固穩定的 Prompt 結構)
+    // STEP 3: 生成教學簡報 Prompt (自動注入 Streamlit 檔名識別碼)
     function generateStep3Prompt() {
       const select = document.getElementById('s1-select-lesson');
       const item = dangdaiData[select.value] || {};
       const book = item.冊 || '第一冊';
       const lesson = item.課 || '第一課';
+      const textType = document.getElementById('s1-text-type').value;
 
       const content = document.getElementById('s2-edit-content').value.trim();
       const vocabFormatted = parsedVocabList.join(', ');
       const grammarRaw = document.getElementById('s2-edit-grammar').value.trim();
       const grammarFormatted = grammarRaw.split('\n').filter(s => s.trim()).join(', ');
 
+      // 判定模組標號 (供 Streamlit Python 生成自動檔名: 第一冊第一課(對話1)(模組1).pptx)
+      let moduleTag = "全課完整版";
+      if (currentGenMode === 'modular') {
+        moduleTag = `模組 ${currentModuleIndex}`;
+      }
+
       const commonHeader = `你是一位專業的華語教學設計專家。請根據以下提供的「教學資料」，為東南亞學習者（以印尼與越南學生為主）設計一套結構嚴謹的教學簡報腳本。
 
 ---
 【輸入教學資料】
-- 課程資訊：${book} ${lesson}
+- 課程資訊：${book} ${lesson} (${textType}) (${moduleTag})
 - 課文文本內容：
 ${content}
 
@@ -727,6 +743,12 @@ ${grammarFormatted}
    - 請統一使用「文字內容：」或「內容：」替代「畫面內容：」。
    - 生詞/語法格式：生詞/語法(拼音)
    - 翻譯格式：在下一行統一呈現 (印尼文對應；越南文對應)，極致精簡，禁止贅字。
+   - 輸出範例（封面 Slide 1 必須寫入課程完整名稱與模組編號）：
+     【Slide 1】[ 封面 ]
+     頁面類型：COVER
+     內容：
+     - 當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
+     - 學習目標：學會目標生詞與語法
    - 輸出範例（生詞）：
      頁面類型：VOCAB
      內容：
@@ -753,7 +775,7 @@ ${grammarFormatted}
 【簡報製作標準結構與流程】
 
 一、 準備活動（引起動機）
-- Slide 1【封面】：標示冊課、課名、學習目標。
+- Slide 1【封面】：標示 ${book} ${lesson} (${textType}) (${moduleTag}) 與學習目標。
 - Slide 2【引起動機】：設計 1-2 個連結學生生活經驗的簡單問題，搭配 視覺PROMPT。
 
 二、 發展活動 — 生詞教學（5 個一組，結構組裝模式）
@@ -800,7 +822,7 @@ ${grammarFormatted}
 【Slide 1】[ 封面 ]
 頁面類型：COVER
 內容：
-- ${book} ${lesson}
+- 當代中文課程 ${book} ${lesson} (${textType}) (模組 1)
 - 學習目標：學會目標生詞與語法
 視覺PROMPT：A warm vector illustration representing the lesson theme
 教師備忘錄：引導學生朗讀標題。
@@ -856,7 +878,6 @@ ${grammarFormatted}
     }
 
     function showToast(msg) {
-      const toast = document.getElementById('toast');
       toast.textContent = msg;
       toast.style.display = 'block';
       setTimeout(() => { toast.style.display = 'none'; }, 2000);
