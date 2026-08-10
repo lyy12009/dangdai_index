@@ -66,7 +66,6 @@
       font-weight: 600;
     }
 
-    /* Stepper 導覽列 */
     .stepper {
       max-width: 1400px;
       margin: 0 auto 20px auto;
@@ -197,7 +196,6 @@
       padding: 12px;
     }
 
-    /* 按鈕樣式 */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -220,7 +218,6 @@
     .btn-secondary { background-color: #64748b; color: #fff; }
     .btn-secondary:hover { background-color: #475569; }
 
-    /* Tag 標籤與 Diff 比對視覺化 */
     .tag-container {
       display: flex;
       flex-wrap: wrap;
@@ -269,7 +266,6 @@
       color: #1e40af;
     }
 
-    /* 模組選擇 Tab */
     .module-tab-group {
       display: flex;
       flex-wrap: wrap;
@@ -315,7 +311,7 @@
   <header>
     <h1>當代中文課程 - 智慧課文生成與簡報 Prompt 工作流</h1>
     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <a href="[https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/](https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/)" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;">
+      <a href="https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;">
         ☁️ 點我前往 Cloud Stream 網站
       </a>
       <div id="data-status" class="status-badge">資料狀態：讀取中...</div>
@@ -393,7 +389,7 @@
       <div class="grid-2">
         <div class="card">
           <div class="card-title">貼入 LLM 生成的初步結果</div>
-          <div class="info-box">請將包含 &lt;text_content&gt; 等 XML 標籤的 LLM 回覆完整貼入下方，系統將自動解析與比對。</div>
+          <div class="info-box">請將 LLM 回傳的完整內容直接貼入下方，系統將自動擷取與比對歷史詞庫。</div>
           
           <div class="form-group">
             <label for="s2-raw-input">LLM 回覆原始文字：</label>
@@ -442,7 +438,7 @@
         </div>
 
         <div id="modular-selector-box" class="info-box" style="display: none; margin-bottom: 10px;">
-          <div style="margin-bottom: 8px; font-weight: 700;">⚙️ 請選擇要生成的簡報模組（Prompt 自動與 Python 解析器相容）：</div>
+          <div style="margin-bottom: 8px; font-weight: 700;">⚙️ 請選擇要生成的簡報模組：</div>
           <div class="module-tab-group">
             <button class="module-tab active" onclick="switchModule(1)">模組 1: 準備活動</button>
             <button class="module-tab" onclick="switchModule(2)">模組 2: 生詞教學</button>
@@ -459,7 +455,7 @@
 
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
           <button class="btn btn-success" onclick="copyText('s3-prompt-output')">📋 複製當前 Prompt 到剪貼簿</button>
-          <a href="[https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/](https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/)" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          <a href="https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
             ☁️ 點我前往 Cloud Stream 網站產出 PPTX ➡️
           </a>
           <button class="btn btn-secondary" onclick="switchStep(2)">⬅️ 返回 Step 2 微調</button>
@@ -478,7 +474,6 @@
     let currentGenMode = 'all'; // 'all' 或 'modular'
     let currentModuleIndex = 1;
 
-    // 頁面初始化
     window.addEventListener('DOMContentLoaded', () => {
       fetchData();
     });
@@ -592,20 +587,18 @@
 6. 目標語法：請從撰寫的文本中，提煉出 ${grammarCount} 個核心「目標語法點」。
 ---
 
-【輸出格式嚴格要求（必須完全使用以下 XML 標籤包裹，禁止任意刪除標籤或添加前言結語）】
+【輸出格式要求】
+請嚴格按照以下標準標記輸出，切勿包含額外的開場白或結語：
 
-<text_content>
+【課文文本】
 (在此處輸出完整課文內容)
-</text_content>
 
-<vocab_list>
+【目標生詞】
 生詞1, 生詞2, 生詞3, 生詞4, 生詞5 (請務必全部寫在同一列，並用逗號隔開)
-</vocab_list>
 
-<grammar_list>
+【目標語法點】
 1. 語法點1
-2. 語法點2
-</grammar_list>`;
+2. 語法點2`;
 
       document.getElementById('s1-prompt-output').value = prompt;
     }
@@ -615,9 +608,9 @@
       const rawText = document.getElementById('s2-raw-input').value;
       if (!rawText.trim()) return;
 
-      const contentMatch = rawText.match(/<text_content>([\s\S]*?)<\/text_content>/i) || rawText.match(/【課文文本】([\s\S]*?)(?=【目標生詞】|<vocab_list>|$)/i);
-      const vocabMatch = rawText.match(/<vocab_list>([\s\S]*?)<\/vocab_list>/i) || rawText.match(/【目標生詞】([\s\S]*?)(?=【目標語法點】|<grammar_list>|$)/i);
-      const grammarMatch = rawText.match(/<grammar_list>([\s\S]*?)<\/grammar_list>/i) || rawText.match(/【目標語法點】([\s\S]*?)$/i);
+      const contentMatch = rawText.match(/【課文文本】([\s\S]*?)(?=【目標生詞】|$)/i);
+      const vocabMatch = rawText.match(/【目標生詞】([\s\S]*?)(?=【目標語法點】|$)/i);
+      const grammarMatch = rawText.match(/【目標語法點】([\s\S]*?)$/i);
 
       const content = contentMatch ? contentMatch[1].trim() : rawText;
       document.getElementById('s2-edit-content').value = content;
@@ -626,13 +619,13 @@
       if (vocabMatch) {
         const rawVocabs = vocabMatch[1].split(/[,，\n]+/);
         rawVocabs.forEach(item => {
-          const cleaned = item.replace(/^[0-9\.\-\*]+/, '').replace(/<\/?vocab_list>/g, '').trim();
+          const cleaned = item.replace(/^[0-9\.\-\*]+/, '').trim();
           if (cleaned) parsedVocabList.push(cleaned);
         });
       }
 
       if (grammarMatch) {
-        const rawGrammar = grammarMatch[1].split('\n').map(l => l.replace(/^[0-9\.\-\*]+/, '').replace(/<\/?grammar_list>/g, '').trim()).filter(Boolean);
+        const rawGrammar = grammarMatch[1].split('\n').map(l => l.replace(/^[0-9\.\-\*]+/, '').trim()).filter(Boolean);
         document.getElementById('s2-edit-grammar').value = rawGrammar.join('\n');
       }
 
@@ -671,7 +664,6 @@
       switchStep(3);
     }
 
-    // STEP 3 模式與模組切換邏輯
     function toggleGenMode() {
       const radios = document.getElementsByName('gen-mode');
       for (const r of radios) {
@@ -691,25 +683,23 @@
       generateStep3Prompt();
     }
 
-    // STEP 3: 生成教學簡報 Prompt (對齊 Python pptx 解析器並加入嚴格標題負向約束)
+    // STEP 3: 生成教學簡報 Prompt (完全採納原版 index.html 堅固穩定的 Prompt 結構)
     function generateStep3Prompt() {
       const select = document.getElementById('s1-select-lesson');
       const item = dangdaiData[select.value] || {};
       const book = item.冊 || '第一冊';
       const lesson = item.課 || '第一課';
-      const tbcl = document.getElementById('s1-tbcl-info').value;
 
       const content = document.getElementById('s2-edit-content').value.trim();
       const vocabFormatted = parsedVocabList.join(', ');
       const grammarRaw = document.getElementById('s2-edit-grammar').value.trim();
       const grammarFormatted = grammarRaw.split('\n').filter(s => s.trim()).join(', ');
 
-      const commonHeader = `你是一位專業的華語教學設計專家。請根據以下「教學資料」，為東南亞學習者（印尼與越南學生為主）設計教學簡報腳本。
+      const commonHeader = `你是一位專業的華語教學設計專家。請根據以下提供的「教學資料」，為東南亞學習者（以印尼與越南學生為主）設計一套結構嚴謹的教學簡報腳本。
 
 ---
 【輸入教學資料】
 - 課程資訊：${book} ${lesson}
-- 難度規範：嚴格遵守 ${tbcl}（切勿出現超綱詞彙）
 - 課文文本內容：
 ${content}
 
@@ -720,87 +710,93 @@ ${vocabFormatted}
 ${grammarFormatted}
 ---
 
-【PPTX 自動解析引擎相容規範（語法極度嚴格，違反將導致解析失敗）】
+【嚴格等級控管與輸出限制（違反者視為不合格）】
 
-1. 【標題格式禁令（最重要）】：
-   - 每一頁的標題「必須」直接從行首開始，格式完全固定為：【Slide 數字】[ 頁面標題 ]
-   - ❌ 嚴禁在標題前加上 ###、##、#、**、* 或 - 等任何 Markdown 符號！
-   - ❌ 錯誤示範：### 【Slide 1】[ 封面 ] （解析器會無法識別投影片切點）
-   - ❌ 錯誤示範：**【Slide 1】[ 封面 ]** （解析器會無法識別投影片切點）
-   - ⭕ 正確示範：【Slide 1】[ 封面 ]
+1. 【難度邊界控制（嚴禁超綱）】：
+   請根據以下「當代中文對照 TBCL / CEFR 等級標準」，嚴格限制整份簡報（包含擴充短語、例句、練習題與備忘錄）的詞彙與語法難度，切勿出現超出該課等級的字詞：
+   - 第一冊 第 1 ~ 5 課：TBCL 第 1 級 (準 A1) / CEFR Novice Mid (約 500 詞)
+   - 第一冊 第 6 ~ 15 課：TBCL 第 2 級 (A1) / CEFR Novice High (約 1,000 詞)
+   - 第二冊 第 1 ~ 15 課：TBCL 第 3 級 (A2) / CEFR Intermediate Low (約 2,500 詞)
+   - 第三冊 第 1 ~ 15 課：TBCL 第 4 級 (B1) / CEFR Intermediate Mid (約 5,000 詞)
+   - 第四冊 第 1 ~ 15 課：TBCL 第 5 級 (B2) / CEFR Intermediate High (約 8,000 詞)
 
-2. 【標準區段關鍵字】：
-   每頁投影片內部請嚴格按順序使用以下 4 個關鍵字（包含冒號）：
-   頁面類型：(只能填 COVER, VOCAB, 或 NORMAL)
-   內容：
-   視覺PROMPT：
-   教師備忘錄：
+2. 【視覺PROMPT 規範】：
+   所有圖片提示一律標示為「視覺PROMPT：」，內容請直接寫出可輸入 AI 繪圖工具（如 Midjourney, DALL-E）的具體畫面描述（例如："Parents smiling with child, vector style"），方便教師直接複製。
 
-3. 【內容區段填寫細則】：
-   - 語法公式：請以「- 公式：...」開頭，如 `- 公式：因為…所以…(yīnwèi... suǒyǐ...)`
-   - 生詞/語法格式：生詞(pinyin)
-   - 雙語翻譯：下一行寫 (印尼文對應；越南文對應)，極致精簡。
-   - 強調語法：重點語法詞請用 **雙星號** 包裹（如 **因為**）。
+3. 【排版與輸出格式規範】：
+   - 請統一使用「文字內容：」或「內容：」替代「畫面內容：」。
+   - 生詞/語法格式：生詞/語法(拼音)
+   - 翻譯格式：在下一行統一呈現 (印尼文對應；越南文對應)，極致精簡，禁止贅字。
+   - 輸出範例（生詞）：
+     頁面類型：VOCAB
+     內容：
+     - 生詞(拼音)
+     - (印尼文對應；越南文對應)
+     - 課文原句：...
+   - 輸出範例（語法）：
+     頁面類型：NORMAL
+     內容：
+     - 公式：因為…所以…(yīnwèi... suǒyǐ...)
+     - (karena... maka...；vì... nên...)
+     - 課文原句：因為今天下雨，所以我沒出去。
 
-4. 【絕對禁止】：
-   - 嚴禁輸出 \`\`\`markdown 或 \`\`\` 程式碼區塊標記！直接輸出純文字！
-   - 嚴禁輸出任何開場白（如「好的，以下是...」）或結語！請直接從 【Slide 1】 開始輸出！
-
----
-【標準 Slide 輸出樣板範例】
-
-【Slide 1】[ 封面 ]
-頁面類型：COVER
-內容：
-- ${book} ${lesson}
-- 學習目標：學會目標生詞與語法
-視覺PROMPT：A warm vector illustration representing the lesson theme, bright colors
-教師備忘錄：引導學生朗讀標題，確認學習目標。
-
-【Slide 2】[ 生詞教學 ]
-頁面類型：VOCAB
-內容：
-- 生詞(拼音)
-- (印尼文對應；越南文對應)
-- 課文原句
-- 擴充短語：短語1、短語2
-- 例句：例句內容
-視覺PROMPT：Vector style illustration representing the word concept
-教師備忘錄：帶讀拼音兩次，點名學生回答。`;
+4. 【純腳本輸出】：
+   禁止輸出任何前言、開場白（例如："好的，以下是..."）、結語、分析文字或設計理由。請直接從【Slide 1】開始輸出。
+`;
 
       let prompt = '';
 
       if (currentGenMode === 'all') {
         prompt = `${commonHeader}
+---
 
-【本次生成任務：一次性生成完整簡報腳本 (All-in-One)】
+【簡報製作標準結構與流程】
 
 一、 準備活動（引起動機）
-- 【Slide 1】[ 封面 ] (頁面類型：COVER)
-- 【Slide 2】[ 引起動機 ] (頁面類型：NORMAL)
+- Slide 1【封面】：標示冊課、課名、學習目標。
+- Slide 2【引起動機】：設計 1-2 個連結學生生活經驗的簡單問題，搭配 視覺PROMPT。
 
-二、 發展活動 — 生詞教學（5 個一組）
-每 5 個生詞一組，每個生詞依序 3 張 Slides (頁面類型：VOCAB)：
-- 【Slide X】[ 生詞：課文錨定 ]
-- 【Slide Y】[ 生詞：情境遷移 ]
-- 【Slide Z】[ 生詞：機械操練 ]
-★ 每 5 個生詞後插入：【Slide A】[ 快問快答 ] 與 【Slide B】[ 意義性問答 ]
+二、 發展活動 — 生詞教學（5 個一組，結構組裝模式）
+請將生詞清單自動以「5 個生詞」為一組進行切分（Group 1, Group 2...）。每個生詞依序製作 3 張 Slides (頁面類型：VOCAB)：
+- Slide 1【課文錨定】：呈現生詞與拼音、印尼文與越南文精簡翻譯、課文「原句/短語」。
+- Slide 2【情境遷移】：請 LLM 依據是否超綱判斷，每頁給予 3–5 個不超綱的擴充短語/詞組及例句。
+- Slide 3【機械操練 (DRILL)】：請 LLM 依據是否超綱判斷，每頁生成 3–5 題不超綱的看圖代換/填空題目（含劃線填空與 視覺PROMPT）。
 
-三、 發展活動 — 語法教學（四層次操練）
-每個語法點 4 張 Slides (頁面類型：NORMAL)：
-- 【Slide X】[ 語法：結構具象化 ]
-- 【Slide Y】[ 語法：一致性例句 ]
-- 【Slide Z】[ 語法：生詞套入操練 ]
-- 【Slide W】[ 語法：產出與診斷 ]
+★【每 5 個生詞後的綜合鞏固練習】（強制插入 2 張 Slides）：
+- Slide A【DRILL 機械性快問快答】：提供固定句型框架，將這 5 個生詞帶入朗讀。
+- Slide B【PRACTICE 意義性問答】：請 LLM 依據是否超綱判斷，設計 3–5 題情境問答或選詞填空題。
 
-四、 課文組裝與總結
-- 【Slide X】[ 課文：全文呈現 ]
-- 【Slide Y】[ 課文：語意理解確認 ]
-- 【Slide Z】[ 綜合：延伸活動與作業 ]`;
+三、 發展活動 — 語法教學（公式化與層次操練）
+對每個目標語法點，依序製作 4 張 Slides (頁面類型：NORMAL)：
+- Slide 1【結構具象化】：標示語法公式（開頭寫公式：）、拼音及 (印尼文對應；越南文對應)。
+- Slide 2【一致性例句】：請 LLM 依據是否超綱判斷，提供 3–5 個正確例句（隔離變項）。
+- Slide 3【生詞套入操練】：請 LLM 依據是否超綱判斷，設計 3–5 題填空/代換練習，優先套入剛學過的生詞。
+- Slide 4【產出與診斷】：設計 1 個微情境問答，並在【教師備忘錄】寫出診斷重點。
+
+四、 發展活動 — 課文組裝
+- Slide 1【課文呈現】：完整呈現課文，重點生詞與語法以【粗體】標示，備註朗讀活動方式。
+- Slide 2【語意理解確認】：設計 3-5 個事實性提問（Fact-based Questions）。
+
+五、 綜合活動與延伸活動
+- Slide 1【總結與遊戲】：規劃 1 個課堂互動遊戲題型（如配對賽）。
+- Slide 2【作業】：布置課後延伸練習或作業。
+
+---
+
+【每張 Slide 的標準輸出格式】
+【Slide X】[ Slide 標題 ]
+頁面類型：(COVER, VOCAB, 或 NORMAL)
+內容：
+- 生詞/語法(拼音)
+- (印尼文對應；越南文對應)
+- 課文原句/例句/題目內容
+視覺PROMPT：(AI 繪圖提示詞)
+教師備忘錄：(口頭指令、教學步驟或診斷重點)
+`;
       } else {
         const modulesPrompt = {
           1: `【本次生成任務：模組 1 - 準備活動（引起動機）】
-請嚴格遵守標題格式，直接輸出以下 2 張 Slides（禁止在 【Slide 】 前加任何 Markdown 符號）：
+請生成以下 2 張 Slides：
 【Slide 1】[ 封面 ]
 頁面類型：COVER
 內容：
@@ -812,42 +808,37 @@ ${grammarFormatted}
 【Slide 2】[ 引起動機 ]
 頁面類型：NORMAL
 內容：
-- 簡答題內容
-視覺PROMPT：Vector illustration of everyday scene
+- 簡答題題目內容
+視覺PROMPT：Vector illustration of a classroom scene
 教師備忘錄：提問學生生活經驗。`,
           
           2: `【本次生成任務：模組 2 - 生詞教學（課文錨定與層次操練）】
 請將目標生詞清單以「5 個生詞」為一組（Group 1, Group 2...）。每個生詞依序製作 3 張 Slides (頁面類型：VOCAB)：
 - 【Slide X】[ 生詞：課文錨定 ]
 - 【Slide Y】[ 生詞：情境遷移 ]
-- 【Slide Z】[ 生詞：機械操練 (DRILL) ]
-（標題嚴禁加 ### 或 **）`,
+- 【Slide Z】[ 生詞：機械操練 (DRILL) ]`,
 
           3: `【本次生成任務：模組 3 - 生詞綜合鞏固練習】
 請針對目標生詞，設計 2 張綜合鞏固 Slides (頁面類型：NORMAL)：
 - 【Slide 1】[ 生詞鞏固：快問快答 ]
-- 【Slide 2】[ 生詞鞏固：情境問答 ]
-（標題嚴禁加 ### 或 **）`,
+- 【Slide 2】[ 生詞鞏固：情境問答 ]`,
 
           4: `【本次生成任務：模組 4 - 語法教學（四層次操練）】
 對每一個目標語法點，依序製作 4 張 Slides (頁面類型：NORMAL)：
-- 【Slide 1】[ 語法：結構具象化 ] (公式請以「- 公式：...」開頭)
+- 【Slide 1】[ 語法：結構具象化 ] (公式請寫：- 公式：...)
 - 【Slide 2】[ 語法：一致性例句 ] (強調詞寫成 **語法點**)
 - 【Slide 3】[ 語法：生詞套入操練 ]
-- 【Slide 4】[ 語法：產出與診斷 ]
-（標題嚴禁加 ### 或 **）`,
+- 【Slide 4】[ 語法：產出與診斷 ]`,
 
           5: `【本次生成任務：模組 5 - 課文組裝與理解確認】
 請生成以下 2 張 Slides (頁面類型：NORMAL)：
 - 【Slide 1】[ 課文：全文呈現 ]
-- 【Slide 2】[ 課文：語意理解確認 ]
-（標題嚴禁加 ### 或 **）`,
+- 【Slide 2】[ 課文：語意理解確認 ]`,
 
           6: `【本次生成任務：模組 6 - 綜合活動與延伸作業】
 請生成以下 2 張 Slides (頁面類型：NORMAL)：
 - 【Slide 1】[ 綜合：總結與遊戲 ]
-- 【Slide 2】[ 綜合：課後作業 ]
-（標題嚴禁加 ### 或 **）`
+- 【Slide 2】[ 綜合：課後作業 ]`
         };
 
         prompt = `${commonHeader}\n\n${modulesPrompt[currentModuleIndex]}`;
