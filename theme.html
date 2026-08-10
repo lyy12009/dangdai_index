@@ -311,7 +311,7 @@
   <header>
     <h1>當代中文課程 - 智慧課文生成與簡報 Prompt 工作流</h1>
     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <a href="[https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/](https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/)" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;">
+      <a href="https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;">
         ☁️ 點我前往 Cloud Stream 網站
       </a>
       <div id="data-status" class="status-badge">資料狀態：讀取中...</div>
@@ -433,7 +433,7 @@
       <div class="card">
         <div class="card-title">
           <span>最終產出：教學簡報設計 Prompt</span>
-          <div style="font-size: 0.9rem; font-weight: normal; display: flex; gap: 15px; align- items: center;">
+          <div style="font-size: 0.9rem; font-weight: normal; display: flex; gap: 15px; align-items: center;">
             <label><input type="radio" name="gen-mode" value="all" checked onchange="toggleGenMode()"> 一次性生成 (全課完整版)</label>
             <label><input type="radio" name="gen-mode" value="modular" onchange="toggleGenMode()"> 分六大模組生成 (防 Token 溢出與截斷)</label>
           </div>
@@ -457,7 +457,7 @@
 
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
           <button class="btn btn-success" onclick="copyText('s3-prompt-output')">📋 複製當前 Prompt 到剪貼簿</button>
-          <a href="[https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/](https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/)" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          <a href="https://dangdaiteachingslide-aanf6cxbuynn3ehfmzw5xt.streamlit.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
             ☁️ 點我前往 Cloud Stream 網站產出 PPTX ➡️
           </a>
           <button class="btn btn-secondary" onclick="switchStep(2)">⬅️ 返回 Step 2 微調</button>
@@ -563,7 +563,7 @@
       });
     }
 
-    // STEP 1: 生成課文 Prompt
+    // STEP 1: 生成課文 Prompt (強迫程式碼框包裹，確保標籤不被渲染吞掉)
     function generateStep1Prompt() {
       const select = document.getElementById('s1-select-lesson');
       const item = dangdaiData[select.value] || {};
@@ -589,8 +589,14 @@
 6. 目標語法：請從撰寫的文本中，提煉出 ${grammarCount} 個核心「目標語法點」。
 ---
 
-【輸出格式嚴格要求（請務必保留以下三個【】標準標題，切勿更改標題文字或輸出開場白/結語）】
+【最高強制輸出指令：必須包裹在 ```markdown 程式碼框內】
+請「務必」將你輸出的內容，全部包裹在單一的 \`\`\`markdown 開頭與 \`\`\` 結尾的【程式碼方框 (Code Block)】內部！
+這能確保介面上出現「Copy（複製）」按鈕，且【】標籤不被富文本渲染吃掉。
 
+【Code Block 內部格式要求】
+請嚴格複製並使用以下三個【】標籤名稱，絕對不可修改標題文字，且不可在程式碼框外寫任何前言或結語：
+
+\`\`\`markdown
 【課文文本】
 (在此處輸出完整課文內容)
 
@@ -599,34 +605,49 @@
 
 【目標語法點】
 1. 語法點1
-2. 語法點2`;
+2. 語法點2
+\`\`\``;
 
       document.getElementById('s1-prompt-output').value = prompt;
     }
 
-    // STEP 2: 多重容錯解析器 (相容所有 LLM 標題變異)
+    // STEP 2: 超強效防溢出解析器 (解決生詞/語法混入課文問題)
     function parseAndAnalyze() {
-      const rawText = document.getElementById('s2-raw-input').value;
+      let rawText = document.getElementById('s2-raw-input').value;
       if (!rawText.trim()) return;
 
-      const contentMatch = rawText.match(/(?:【(?:課文文本|課文|文本)】|<text_content>)([\s\S]*?)(?=(?:【(?:目標生詞|生詞|目標詞彙|詞彙)】|<vocab_list>|$))/i);
-      const vocabMatch = rawText.match(/(?:【(?:目標生詞|生詞|目標詞彙|詞彙)】|<vocab_list>)([\s\S]*?)(?=(?:【(?:目標語法點|目標語法|語法點|語法)】|<grammar_list>|$))/i);
-      const grammarMatch = rawText.match(/(?:【(?:目標語法點|目標語法|語法點|語法)】|<grammar_list>)([\s\S]*?)$/i);
+      // 1. 強效文字預處理：把 [ ] 自動轉成 【 】，去除 ```markdown 與 ### ** 符號
+      let cleaned = rawText
+        .replace(/\[/g, '【').replace(/\]/g, '】')
+        .replace(/```markdown\s*/gi, '').replace(/```\s*$/gi, '')
+        .replace(/###\s*/g, '').replace(/\*\*/g, '');
 
-      const content = contentMatch ? contentMatch[1].trim() : rawText;
+      // 2. 精準擷取課文 (嚴格止於生詞或語法標籤，絕對不讓生詞溢出到課文中)
+      let content = '';
+      const contentMatch = cleaned.match(/【(?:課文文本|課文|文本)】([\s\S]*?)(?=【(?:目標生詞|生詞|目標詞彙|詞彙|目標語法|語法點|語法)】|$)/i);
+      if (contentMatch) {
+        content = contentMatch[1].trim();
+      } else {
+        // Fallback：手動切掉生詞與語法部分
+        content = cleaned.split(/【(?:目標生詞|生詞|目標詞彙|詞彙|目標語法|語法點|語法)】/i)[0].replace(/【(?:課文文本|課文|文本)】/i, '').trim();
+      }
       document.getElementById('s2-edit-content').value = content;
 
+      // 3. 精準擷取生詞
       parsedVocabList = [];
+      const vocabMatch = cleaned.match(/【(?:目標生詞|生詞|目標詞彙|詞彙)】([\s\S]*?)(?=【(?:目標語法點|目標語法|語法點|語法)】|$)/i);
       if (vocabMatch) {
         const rawVocabs = vocabMatch[1].split(/[,，\n]+/);
         rawVocabs.forEach(item => {
-          const cleaned = item.replace(/^[0-9\.\-\*]+/, '').replace(/<\/?vocab_list>/g, '').trim();
-          if (cleaned) parsedVocabList.push(cleaned);
+          const cleanItem = item.replace(/^[0-9\.\-\*]+/, '').trim();
+          if (cleanItem) parsedVocabList.push(cleanItem);
         });
       }
 
+      // 4. 精準擷取語法
+      const grammarMatch = cleaned.match(/【(?:目標語法點|目標語法|語法點|語法)】([\s\S]*?)$/i);
       if (grammarMatch) {
-        const rawGrammar = grammarMatch[1].split('\n').map(l => l.replace(/^[0-9\.\-\*]+/, '').replace(/<\/?grammar_list>/g, '').trim()).filter(Boolean);
+        const rawGrammar = grammarMatch[1].split('\n').map(l => l.replace(/^[0-9\.\-\*]+/, '').trim()).filter(Boolean);
         document.getElementById('s2-edit-grammar').value = rawGrammar.join('\n');
       }
 
@@ -638,7 +659,7 @@
       container.innerHTML = '';
 
       if (parsedVocabList.length === 0) {
-        container.innerHTML = '<span style="color: var(--danger); font-size: 0.85rem; font-weight: 600;">⚠️ 未偵測到生詞標籤，請確認 LLM 輸出是否包含【生詞】或【目標生詞】標題，或直接在下面手動補充。</span>';
+        container.innerHTML = '<span style="color: var(--danger); font-size: 0.85rem; font-weight: 600;">⚠️ 未偵測到生詞標籤，請確認貼入文字是否包含【生詞】標題，或手動在下面欄位補充。</span>';
         return;
       }
 
@@ -684,7 +705,7 @@
       generateStep3Prompt();
     }
 
-    // STEP 3: 生成教學簡報 Prompt (修正：極致強迫 Code Block 輸出與雙重換行保護)
+    // STEP 3: 生成簡報 Prompt (極致強迫 Code Block 輸出，防止被 Copilot 攤平)
     function generateStep3Prompt() {
       const select = document.getElementById('s1-select-lesson');
       const item = dangdaiData[select.value] || {};
@@ -704,7 +725,7 @@
 
       const commonHeader = `你是一個華語簡報自動化腳本生成器。請根據以下提供的「教學資料」，為東南亞學習者（以印尼與越南學生為主）設計教學簡報腳本。
 
-【最高強制輸出指令：必須放入 Code Block 中】
+【最高強制輸出指令：必須完整放入 Code Block 中】
 請「務必」將你產出的全部簡報腳本內容，完整包裹在單一的 \`\`\`markdown 開頭與 \`\`\` 結尾的【程式碼方框 (Code Block)】內部！
 這點非常重要，因為我必須點擊 Copilot / ChatGPT 介面上該方框右上角的「Copy（複製）」按鈕進行系統自動匯入。
 ❌ 切勿直接輸出為普通 Markdown 文本或標題！
@@ -713,11 +734,11 @@
 【內容排版嚴格規則】
 1. 每一頁 Slide 的標題格式必須獨立成一行：【Slide 數字】[ 頁面標題 ]
 2. 每一頁 Slide 之間，【必須 Enter 空兩行】！
-3. 關鍵字「頁面類型：」、「內容：」、「視覺PROMPT：」、「教師備忘錄：」必須【各自獨占一行】，後方內容紧接著換行！
+3. 關鍵字「頁面類型：」、「內容：」、「視覺PROMPT：」、「教師備忘錄：」必須【各自獨占一行】，後方內容緊接著換行！
 
 ---
 【輸入教學資料】
-- 課程資訊：${book} ${lesson} (${textType}) (${moduleTag})
+- 課程資訊：當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag})
 - 課文文本內容：
 ${content}
 
@@ -766,7 +787,7 @@ ${grammarFormatted}
 【簡報製作標準結構與流程】
 
 一、 準備活動（引起動機）
-- Slide 1【封面】：標示當代中文課程 ${book}${lesson} (${textType}) (${moduleTag}) 與學習目標。
+- Slide 1【封面】：標示當代中文課程 ${book} ${lesson} (${textType}) (${moduleTag}) 與學習目標。
 - Slide 2【引起動機】：設計 1-2 個連結學生生活經驗的簡單問題，搭配 視覺PROMPT。
 
 二、 發展活動 — 生詞教學（5 個一組，結構組裝模式）
